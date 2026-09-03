@@ -1,0 +1,83 @@
+name: LibObs
+description: >
+  Puts the libobs build that matches build-libobs.cmd into the folder RePlays.csproj
+  reads it from. The build is downloaded from the "libobs" release of the repository
+  and only built (and published there for the next time) when no build exists for the
+  current version of the script, so the app builds do not rebuild libobs on every
+  commit (issue #101).
+
+inputs:
+  token:
+    description: A token that can download and upload the assets of the libobs release
+    required: true
+  rebuild:
+    description: Build libobs even if a build for the current script is already published
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # a build is identified by the obs version and the git blob id of the build
+    # script, so every change to the script produces a new build and an unchanged
+    # script reuses the published one. the folder is the one RePlays.csproj expects
+    # (OBSBuildPath)
+    - name: Work out which libobs build the script produces
+      id: key
+      shell: bash
+      run: |
+        version=$(sed -n 's/^set "OBS_STUDIO_VERSION=\(.*\)"\r\{0,1\}$/\1/p' build-libobs.cmd)
+        if [[ -z "$version" ]]; then
+          echo "::error::Could not read OBS_STUDIO_VERSION from build-libobs.cmd"
+          exit 1
+        fi
+        script=$(git rev-parse --short=12 HEAD:build-libobs.cmd)
+        echo "asset=libobs-$version-$script-windows-x64.zip" >> $GITHUB_OUTPUT
+        echo "rundir=obs-studio-build/obs-studio-$version/build/rundir/Release/bin/64bit" >> $GITHUB_OUTPUT
+
+    - name: Download the published libobs build
+      id: download
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ASSET: ${{ steps.key.outputs.asset }}
+        RUNDIR: ${{ steps.key.outputs.rundir }}
+        REBUILD: ${{ inputs.rebuild }}
+      run: |
+        mkdir -p obs-studio-build
+        if [[ "$REBUILD" == "true" ]]; then
+          echo "Rebuild requested, not looking for a published $ASSET"
+          echo "found=false" >> $GITHUB_OUTPUT
+        elif gh release download libobs --pattern "$ASSET" --output "obs-studio-build/$ASSET" --clobber; then
+          echo "Using the published $ASSET"
+          mkdir -p "$RUNDIR"
+          7z x "obs-studio-build/$ASSET" -o"$RUNDIR" -y > /dev/null
+          echo "found=true" >> $GITHUB_OUTPUT
+        else
+          echo "$ASSET is not on the libobs release, building it"
+          echo "found=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build LibObs
+      if: steps.download.outputs.found != 'true'
+      shell: cmd
+      run: build-libobs.cmd
+
+    # the release is a prerelease that is never marked latest, so the stable update
+    # channel and the releases/latest download links keep ignoring it. velopack only
+    # reads releases that carry a releases.win.json, so the nightly channel does too
+    - name: Publish the build on the libobs release
+      if: steps.download.outputs.found != 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ASSET: ${{ steps.key.outputs.asset }}
+        RUNDIR: ${{ steps.key.outputs.rundir }}
+      run: |
+        7z a -tzip -mx=5 -r "obs-studio-build/$ASSET" "$RUNDIR/*" > /dev/null
+        if ! gh release view libobs > /dev/null 2>&1; then
+          gh release create libobs --prerelease --latest=false --title "LibObs builds" \
+            --notes "Builds of libobs made by build-libobs.cmd, one per version of that script. RePlays builds download the one matching their script from here instead of building libobs themselves. To debug RePlays locally, extract the newest zip into obs-studio-build/obs-studio-<version>/build/rundir/Release/bin/64bit (see the Development wiki page)."
+        fi
+        gh release upload libobs "obs-studio-build/$ASSET" --clobber
+        echo "Published $ASSET"

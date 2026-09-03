@@ -1,0 +1,40 @@
+name: Build LibObs
+
+# libobs only changes when build-libobs.cmd does, so it is built once per version
+# of that script and kept as a zip on the "libobs" release. The app builds
+# (dotnet.yml, release.yml) download that zip instead of building libobs on every
+# commit (issue #101). This workflow builds a changed script as soon as it lands on
+# main, so the next app build finds its libobs ready. The download, build and
+# publish steps are shared with the app builds in .github/actions/libobs.
+on:
+  push:
+    branches: [main]
+    paths:
+      - build-libobs.cmd
+      - .github/actions/libobs/action.yml
+      - .github/workflows/libobs.yml
+
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: "Build again even if a build for the current script is already published"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  libobs:
+    runs-on: windows-2022
+    name: Build LibObs
+
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build and publish LibObs
+        uses: ./.github/actions/libobs
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          rebuild: ${{ inputs.rebuild == true }}
