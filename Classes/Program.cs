@@ -73,6 +73,7 @@ namespace RePlays {
             // there the migration done by "Update.exe start" (see Updater.Restart) takes care of it
             VelopackApp.Build()
                 .SetLogger(new VelopackLogger())
+                .OnFirstRun(_ => Updater.firstRunAfterSetup = true)
                 .SetAutoApplyOnStartup(!Updater.IsSquirrelLayout())
                 .Run();
 
@@ -114,6 +115,7 @@ namespace RePlays {
             }
 #endif
             SettingsService.LoadSettings();
+            Updater.ApplyBuildChannel();
             SettingsService.UpdateGpuManufacturer();
             SettingsService.SaveSettings();
             StorageService.ManageStorage();

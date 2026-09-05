@@ -201,8 +201,11 @@ namespace RePlays.Recorders {
             if (!obs_startup("en-US", null, IntPtr.Zero)) {
                 throw new Exception("error on libobs startup");
             }
-            obs_add_data_path("./data/libobs/");
-            obs_add_module_path("./obs-plugins/64bit/", "./data/obs-plugins/%module%/");
+            // full paths: libobs resolves relative ones against the working directory, which is
+            // only the app folder when RePlays is started through one of its shortcuts
+            var appDir = AppContext.BaseDirectory.Replace(Path.DirectorySeparatorChar, '/').TrimEnd('/');
+            obs_add_data_path(appDir + "/data/libobs/");
+            obs_add_module_path(appDir + "/obs-plugins/64bit/", appDir + "/data/obs-plugins/%module%/");
 
             ResetAudio();
             ResetVideo();
