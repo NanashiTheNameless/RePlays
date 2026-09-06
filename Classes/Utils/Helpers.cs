@@ -114,11 +114,53 @@ namespace RePlays.Utils {
             return tempSaveDir;
         }
 
+        static string cfgFolder;
+        static readonly object cfgFolderLock = new();
+
+        // settings, logs, detections and the webview profile. they used to live in the install
+        // folder (cfg next to the current version), which velopack's setup wipes when it installs
+        // over an existing install. an installed RePlays keeps them in the roaming AppData folder
+        // (AppData/Roaming/RePlays) instead and moves what it finds in the old place there once.
+        // a development build is not installed and keeps using the cfg folder next to its output
         public static string GetCfgFolder() {
-            var cfgDir = Path.Join(GetStartupPath(), @"../cfg/");
-            if (!Directory.Exists(cfgDir))
-                Directory.CreateDirectory(cfgDir);
-            return cfgDir;
+            lock (cfgFolderLock) {
+                if (cfgFolder != null) return cfgFolder;
+                var legacyDir = Path.GetFullPath(Path.Join(GetStartupPath(), @"../cfg/"));
+                var installed = File.Exists(Path.Join(GetStartupPath(), @"../Update.exe"));
+                if (!installed) {
+                    Directory.CreateDirectory(legacyDir);
+                    return cfgFolder = legacyDir;
+                }
+                var dir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"RePlays/");
+                string moved = null;
+                if (!File.Exists(Path.Join(dir, "userSettings.json")) && File.Exists(Path.Join(legacyDir, "userSettings.json"))) {
+                    try {
+                        CopyDirectory(legacyDir, dir);
+                        moved = $"Moved the cfg folder from {legacyDir} to {dir}";
+                        try {
+                            Directory.Delete(legacyDir, true);
+                        }
+                        catch (Exception exception) {
+                            moved += $" (the old folder could not be removed: {exception.Message})";
+                        }
+                    }
+                    catch (Exception exception) {
+                        moved = $"Could not move the cfg folder from {legacyDir} to {dir}: {exception.Message}";
+                    }
+                }
+                Directory.CreateDirectory(dir);
+                cfgFolder = dir;
+                if (moved != null) Logger.WriteLine(moved);
+                return cfgFolder;
+            }
+        }
+
+        static void CopyDirectory(string source, string destination) {
+            Directory.CreateDirectory(destination);
+            foreach (var file in Directory.EnumerateFiles(source))
+                File.Copy(file, Path.Join(destination, Path.GetFileName(file)), true);
+            foreach (var directory in Directory.EnumerateDirectories(source))
+                CopyDirectory(directory, Path.Join(destination, Path.GetFileName(directory)));
         }
 
         public static string GetResourcesFolder() {

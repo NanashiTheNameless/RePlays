@@ -14,6 +14,14 @@ namespace RePlays.Utils {
         public static string currentVersion = "?";
         public static string latestVersion = "Offline";
         public static bool applyingUpdate { get; internal set; }
+        // the release channel this build was made for (UpdateChannel property in RePlays.csproj)
+#if NIGHTLY
+        public const string BuildChannel = "Nightly";
+#else
+        public const string BuildChannel = "Stable";
+#endif
+        // set by the velopack first run hook: this launch is the first after a setup ran
+        public static bool firstRunAfterSetup;
         // the manager of the most recent update check, kept so a restart can install the update it downloaded
         static UpdateManager manager;
 
@@ -38,6 +46,20 @@ namespace RePlays.Utils {
         public static bool IsSquirrelLayout() {
             var folder = Path.GetFileName(Path.TrimEndingDirectorySeparator(AppContext.BaseDirectory));
             return folder.StartsWith("app-", StringComparison.OrdinalIgnoreCase);
+        }
+
+        // running a setup is a deliberate choice of channel: a nightly setup installs a version
+        // that no stable release reaches for a long time, so left on the stable channel (the
+        // default of a fresh install, or whatever a reinstall finds in the settings) it would
+        // never update again. so the first launch after a setup puts the update channel on the
+        // channel of the installed build. updates do not run this, a channel picked in the
+        // settings survives them
+        public static void ApplyBuildChannel() {
+            if (!firstRunAfterSetup) return;
+            var settings = SettingsService.Settings.generalSettings;
+            if (settings.updateChannel == BuildChannel) return;
+            Logger.WriteLine($"First run after the setup of a {BuildChannel} build, switching the update channel from {settings.updateChannel} to {BuildChannel}");
+            settings.updateChannel = BuildChannel;
         }
 
         public static async void CheckForUpdates(bool forceUpdate = false) {

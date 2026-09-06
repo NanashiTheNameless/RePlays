@@ -43,14 +43,21 @@ libobs is necessary for debugging and is not included with the project, the requ
 
 At the time of writing this guide, you have a few options for where to get libobs:
 
-1.  Build it yourself (**RECOMMENDED**)
-2.  Copy libobs from other sources
+1.  Download the build that RePlays releases use (**RECOMMENDED**)
+2.  Build it yourself
 
-### 1. Build libobs yourself
+### 1. Download the build that RePlays releases use
 
-This is the best way if you want to match similar results to production.
+The GitHub workflows do not build libobs on every commit. It is built once per version of `build-libobs.cmd` and published as a zip on the [libobs release](https://github.com/lulzsun/RePlays/releases/tag/libobs), and the nightly and stable builds download it from there. Using the same zip gives you exactly what production runs.
 
-There is an included build script in the root folder to make life a lot easier.
+1.  Download the newest `libobs-<obs version>-<script>-windows-x64.zip` from the [libobs release](https://github.com/lulzsun/RePlays/releases/tag/libobs)
+2.  Extract it into `~/obs-studio-build/obs-studio-<obs version>/build/rundir/Release/bin/64bit/` (create the folders; `<obs version>` must match the `OBSVersion` in `RePlays.csproj`), so that `obs.dll` ends up directly in that folder
+
+The msbuild pre-build copies the files from there into the Debug folder the first time you debug.
+
+### 2. Build libobs yourself
+
+This gives the same result as the download, since the workflows run the same script, and is what you need when changing the script or the obs version.
 
 This requires you to have Cmake, git, 7zip, and Visual Studio 17 2022 installed on your system.
 
@@ -59,33 +66,9 @@ Make sure Cmake, git and 7zip are in your system environmental variables (so the
 Provided that you have all this, the build script is a one-click solution.
 
 1.  Run `build-libobs.cmd` in cmd/powershell from root folder
-2.  Build should be successful if the file `~/obs-studio-build/obs-studio-release/bin/64bit/obs.dll` exists
+2.  Build should be successful if the file `~/obs-studio-build/obs-studio-<obs version>/build/rundir/Release/bin/64bit/obs.dll` exists
 
-The script takes care of everything (cloning, building, downloading and copying certain third party obs plugins if necessary) for you and is what production builds run, so this will be matching results from production.
-
-### 2. Copy libobs from RePlays/OBS Studio/Streamlabs
-
-This step will be using Streamlabs as an example, you can download their libobs release [here](https://obsstudios3.streamlabs.com/libobs-windows64-release-27.5.32.7z).
-
-NOTE: Copying other versions of libobs that do not match the current release may cause different debugging results. It is recommended that you build libobs yourself or at the very least copy from RePlays production release.
-
-The required files and folders are as follows:
-
-    - /packed_build
-        - /bin
-            - /64bit
-                - obs.dll & ~dependencies/.dlls, etc. files~
-        - /cmake
-        - /data
-        - /include
-        - /obs-plugins
-
-and must be copied to the debug folder like so:
-
-    - /bin/Debug/net8.0-windows/win-x64
-        - /data
-        - /obs-plugins
-        - obs.dll & ~dependencies/.dlls, etc. files~
+The script takes care of everything (cloning, building, downloading and copying certain third party obs plugins if necessary) for you. When a change to the script lands on `main`, the `Build LibObs` workflow builds it and publishes the new zip on the libobs release, so the app builds keep downloading instead of building.
 
 # 5. Start debugging!
 

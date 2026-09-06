@@ -107,14 +107,17 @@ jobs:
       - name: Download previous release to create delta
         run: dotnet vpk download github --repoUrl https://github.com/${{ github.repository }} --token ${{ secrets.GITHUB_TOKEN }} --pre --outputDir bin/Deployment/Releases
 
-      - name: Build LibObs
-        run: .\\build-libobs.cmd
-        shell: cmd
+      # libobs is built once per version of build-libobs.cmd and kept on the
+      # "libobs" release, so this normally only downloads it (see libobs.yml)
+      - name: Get LibObs
+        uses: ./.github/actions/libobs
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build RePlays
         env:
           CI: false
-        run: dotnet publish /p:Configuration=Release /p:Version=${{needs.prep.outputs.version}} /p:PublishProfile=FolderProfile -v d
+        run: dotnet publish /p:Configuration=Release /p:Version=${{needs.prep.outputs.version}} /p:UpdateChannel=Nightly /p:PublishProfile=FolderProfile -v d
 
       - name: Append version to setup file
         run: ren ./bin/Deployment/Releases/RePlays-win-Setup.exe RePlaysSetup-${{needs.prep.outputs.version}}.exe

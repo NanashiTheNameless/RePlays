@@ -62,6 +62,14 @@
     <DefineConstants>TRACE;DEBUG</DefineConstants>
   </PropertyGroup>
 
+  <!-- the release channel this build is made for, Stable or Nightly. the nightly workflow
+       passes -p:UpdateChannel=Nightly. the first launch after a setup puts the app's update
+       channel on it (see Updater.ApplyBuildChannel) -->
+  <PropertyGroup>
+    <UpdateChannel Condition=" '$(UpdateChannel)' == '' ">Stable</UpdateChannel>
+    <DefineConstants Condition=" '$(UpdateChannel)' == 'Nightly' ">$(DefineConstants);NIGHTLY</DefineConstants>
+  </PropertyGroup>
+
   <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
     <DebugSymbols>false</DebugSymbols>
   </PropertyGroup>
